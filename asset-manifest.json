@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/sign-language-detector/static/css/main.25992b6f.css",
+    "main.js": "/sign-language-detector/static/js/main.a5b19f75.js",
+    "static/js/488.797b17db.chunk.js": "/sign-language-detector/static/js/488.797b17db.chunk.js",
+    "index.html": "/sign-language-detector/index.html",
+    "main.25992b6f.css.map": "/sign-language-detector/static/css/main.25992b6f.css.map",
+    "main.a5b19f75.js.map": "/sign-language-detector/static/js/main.a5b19f75.js.map",
+    "488.797b17db.chunk.js.map": "/sign-language-detector/static/js/488.797b17db.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.25992b6f.css",
+    "static/js/main.a5b19f75.js"
+  ]
+}
