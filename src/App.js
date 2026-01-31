@@ -1,37 +1,86 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as tf from '@tensorflow/tfjs';
+import * as handpose from '@tensorflow-models/handpose';
 import * as cocossd from '@tensorflow-models/coco-ssd';
+import * as fp from 'fingerpose';
 import Webcam from 'react-webcam';
 import './App.css';
-import { drawRect } from './utilities';
+import { drawHand, drawRect } from './utilities';
+import { loveGesture, thumbsUpGesture, victoryGesture, helloGesture, okGesture } from './HandGestures';
+import logo from './logo.png'; // Import the logo
 
 function App() {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [modelLoaded, setModelLoaded] = useState(false);
 
-  // Main function
-  const runCoco = async () => {
-    try {
-      console.log("Loading COCO-SSD model...");
-      const net = await cocossd.load();
-      console.log("COCO-SSD model loaded successfully!");
-      setIsLoading(false);
-      setModelLoaded(true);
+  // State
+  const [mode, setMode] = useState('none'); // 'none', 'handpose', 'cocossd'
+  const [model, setModel] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [emoji, setEmoji] = useState(null);
 
-      // Loop and detect
-      setInterval(() => {
-        detect(net);
-      }, 100); // 10 FPS for smoother performance
-    } catch (err) {
-      console.error("Failed to load COCO-SSD model:", err);
-      setIsLoading(false);
+  // References to stop loops
+  const requestRef = useRef();
+
+  // Load Model based on mode
+  useEffect(() => {
+    async function loadSelectedModel() {
+      // Clear previous model/loop
+      if (requestRef.current) {
+        clearInterval(requestRef.current);
+        requestRef.current = null;
+      }
+      setModel(null);
+      setEmoji(null);
+
+      // Clear canvas
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+
+      if (mode === 'none') return;
+
+      setLoading(true);
+      try {
+        console.log(`Loading ${mode} model...`);
+
+        // Explicit backend set for stability
+        await tf.setBackend('webgl');
+
+        let loadedModel;
+        if (mode === 'handpose') {
+          loadedModel = await handpose.load();
+        } else if (mode === 'cocossd') {
+          loadedModel = await cocossd.load();
+        }
+
+        console.log(`${mode} model loaded.`);
+        setModel(loadedModel);
+        setLoading(false);
+
+        // Start Loop
+        requestRef.current = setInterval(() => {
+          detect(loadedModel);
+        }, 100);
+
+      } catch (err) {
+        console.error("Model load failed", err);
+        setLoading(false);
+        alert(`Failed to load ${mode} model: ${err.message}`);
+      }
     }
-  };
+
+    loadSelectedModel();
+
+    return () => {
+      if (requestRef.current) clearInterval(requestRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
 
   const detect = async (net) => {
-    // Check data is available
     if (
       typeof webcamRef.current !== "undefined" &&
       webcamRef.current !== null &&
@@ -50,86 +99,133 @@ function App() {
       canvasRef.current.width = videoWidth;
       canvasRef.current.height = videoHeight;
 
-      // Make Detections using COCO-SSD
-      const predictions = await net.detect(video);
-
-      // Draw mesh
       const ctx = canvasRef.current.getContext("2d");
 
-      // Clear canvas before drawing new frame
-      ctx.clearRect(0, 0, videoWidth, videoHeight);
+      if (mode === 'handpose') {
+        const hand = await net.estimateHands(video);
+        if (hand.length > 0) {
+          const GE = new fp.GestureEstimator([
+            thumbsUpGesture, victoryGesture, helloGesture, loveGesture, okGesture
+          ]);
+          const gesture = await GE.estimate(hand[0].landmarks, 7.5);
+          if (gesture.gestures !== undefined && gesture.gestures.length > 0) {
+            const confidence = gesture.gestures.map((p) => p.score);
+            const maxConfidence = confidence.indexOf(Math.max.apply(null, confidence));
+            setEmoji(gesture.gestures[maxConfidence].name);
+          } else {
+            setEmoji(null);
+          }
+        }
+        drawHand(hand, ctx);
 
-      // Visualize detections
-      drawRect(predictions, ctx);
+      } else if (mode === 'cocossd') {
+        const predictions = await net.detect(video);
+        // Clear canvas for fresh draw
+        ctx.clearRect(0, 0, videoWidth, videoHeight);
+        drawRect(predictions, ctx);
+        setEmoji(null);
+      }
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { runCoco() }, []);
-
   return (
     <div className="App">
+      {/* Brand Logo */}
+      <img src={logo} alt="AiSign Logo" className="app-logo" />
+
       <header className="App-header">
-        {isLoading && (
-          <div style={{
-            position: 'absolute',
-            zIndex: 20,
-            color: 'white',
-            fontSize: '24px',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: '20px',
-            borderRadius: '10px'
-          }}>
-            Loading COCO-SSD Model...
+
+        {/* Glassmorphism Control Panel */}
+        <div className="control-panel">
+          <button
+            className={`mode-btn ${mode === 'cocossd' ? 'btn-active' : ''}`}
+            onClick={() => setMode('cocossd')}
+            disabled={loading}
+            style={{
+              backgroundColor: mode === 'cocossd' ? '#4ECDC4' : 'rgba(255,255,255,0.8)',
+              color: mode === 'cocossd' ? 'white' : '#333'
+            }}
+          >
+            🧩 Object Detection
+          </button>
+
+          <button
+            className={`mode-btn ${mode === 'handpose' ? 'btn-active' : ''}`}
+            onClick={() => setMode('handpose')}
+            disabled={loading}
+            style={{
+              backgroundColor: mode === 'handpose' ? '#FFEAA7' : 'rgba(255,255,255,0.8)',
+              color: mode === 'handpose' ? '#333' : '#333'
+            }}
+          >
+            👋 Hand Gestures
+          </button>
+        </div>
+
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="loading-overlay">
+            <div style={{ fontSize: '30px', marginBottom: '10px' }}>⚡</div>
+            <h2 style={{ margin: 0, color: '#4ECDC4' }}>Loading AI...</h2>
+            <p style={{ margin: '5px 0 0', opacity: 0.8, fontSize: '14px' }}>Downloading model weights</p>
           </div>
         )}
 
-        {modelLoaded && (
-          <div style={{
-            position: 'absolute',
-            top: '10px',
-            left: '10px',
-            zIndex: 20,
-            color: 'lime',
-            fontSize: '14px',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            padding: '5px 10px',
-            borderRadius: '5px'
-          }}>
-            ✓ Model Loaded - Detecting Objects
+        {/* Main Content Area */}
+        <div className="canvas-container">
+          <Webcam
+            ref={webcamRef}
+            muted={true}
+            style={{
+              position: "absolute",
+              marginLeft: "auto",
+              marginRight: "auto",
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              zindex: 9,
+              width: 640,
+              height: 480,
+            }}
+          />
+
+          <canvas
+            ref={canvasRef}
+            style={{
+              position: "absolute",
+              marginLeft: "auto",
+              marginRight: "auto",
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              zindex: 9,
+              width: 640,
+              height: 480,
+            }}
+          />
+        </div>
+
+        {/* Emoji Display */}
+        {mode === 'handpose' && emoji !== null && (
+          <div className="emoji-display">
+            <span className="emoji-badge">
+              {emoji === 'thumbs_up' ? '👍 YES' :
+                emoji === 'victory' ? '✌️ VICTORY' :
+                  emoji === 'hello' ? '👋 HELLO' :
+                    emoji === 'iloveyou' ? '🤟 I LOVE YOU' :
+                      emoji === 'ok' ? '👌 OK' : emoji}
+            </span>
           </div>
         )}
 
-        <Webcam
-          ref={webcamRef}
-          muted={true}
-          style={{
-            position: "absolute",
-            marginLeft: "auto",
-            marginRight: "auto",
-            left: 0,
-            right: 0,
-            textAlign: "center",
-            zIndex: 9,
-            width: 640,
-            height: 480,
-          }}
-        />
+        {/* Welcome Screen */}
+        {mode === 'none' && !loading && (
+          <div className="welcome-text">
+            <h2>AI Vision Hub</h2>
+            <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Select a mode above to begin detection</p>
+          </div>
+        )}
 
-        <canvas
-          ref={canvasRef}
-          style={{
-            position: "absolute",
-            marginLeft: "auto",
-            marginRight: "auto",
-            left: 0,
-            right: 0,
-            textAlign: "center",
-            zIndex: 10,
-            width: 640,
-            height: 480,
-          }}
-        />
       </header>
     </div>
   );
