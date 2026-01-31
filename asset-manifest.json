@@ -1,15 +1,16 @@
 {
   "files": {
-    "main.css": "/sign-language-detector/static/css/main.25992b6f.css",
-    "main.js": "/sign-language-detector/static/js/main.a5b19f75.js",
+    "main.css": "/sign-language-detector/static/css/main.567a5fb8.css",
+    "main.js": "/sign-language-detector/static/js/main.b1c5730b.js",
     "static/js/488.797b17db.chunk.js": "/sign-language-detector/static/js/488.797b17db.chunk.js",
+    "static/media/logo.png": "/sign-language-detector/static/media/logo.25a4c34ed10c98e36b60.png",
     "index.html": "/sign-language-detector/index.html",
-    "main.25992b6f.css.map": "/sign-language-detector/static/css/main.25992b6f.css.map",
-    "main.a5b19f75.js.map": "/sign-language-detector/static/js/main.a5b19f75.js.map",
+    "main.567a5fb8.css.map": "/sign-language-detector/static/css/main.567a5fb8.css.map",
+    "main.b1c5730b.js.map": "/sign-language-detector/static/js/main.b1c5730b.js.map",
     "488.797b17db.chunk.js.map": "/sign-language-detector/static/js/488.797b17db.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.25992b6f.css",
-    "static/js/main.a5b19f75.js"
+    "static/css/main.567a5fb8.css",
+    "static/js/main.b1c5730b.js"
   ]
 }
